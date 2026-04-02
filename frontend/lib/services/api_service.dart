@@ -90,13 +90,31 @@ class ApiService {
   }
 
   /// Health check
-  Future<bool> healthCheck() async {
+  Future<HealthCheckResult> healthCheck() async {
     try {
       final uri = Uri.parse('$baseUrl/health');
       final response = await http.get(uri);
-      return response.statusCode == 200;
+      return HealthCheckResult(
+        isHealthy: response.statusCode == 200,
+        statusCode: response.statusCode,
+      );
     } catch (e) {
-      return false;
+      final msg = e.toString();
+      if (msg.contains('SocketException') || msg.contains('Connection refused')) {
+        return HealthCheckResult(isHealthy: false, error: 'Network error: Could not reach server');
+      } else if (msg.contains('timeout')) {
+        return HealthCheckResult(isHealthy: false, error: 'Connection timed out');
+      }
+      return HealthCheckResult(isHealthy: false, error: 'Could not connect to server');
     }
   }
+}
+
+/// Result of a health check
+class HealthCheckResult {
+  final bool isHealthy;
+  final int? statusCode;
+  final String? error;
+
+  HealthCheckResult({required this.isHealthy, this.statusCode, this.error});
 }

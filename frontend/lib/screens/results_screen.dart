@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-import '../services/api_service.dart';
 import 'cover_letter_screen.dart';
 
 class ResultsScreen extends StatelessWidget {
   final Map<String, dynamic> result;
   final String jobTitle;
   final String company;
+
+  // Color constants for consistent theming
+  static const _colorSuccess = Color(0xFF10B981);
+  static const _colorPrimary = Color(0xFF3B82F6);
+  static const _colorAccent = Color(0xFF8B5CF6);
 
   const ResultsScreen({
     super.key,
@@ -17,14 +21,14 @@ class ResultsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final apiService = ApiService();
-    final resumeUrl = apiService.getDownloadUrl(result['tailored_resume_url'] as String);
-    final coverLetterUrl = apiService.getDownloadUrl(result['cover_letter_url'] as String);
+    // API returns fully-qualified URLs — use directly
+    final resumeUrl = result['tailored_resume_url'] as String;
+    final coverLetterUrl = result['cover_letter_url'] as String;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: const Color(0xFF10B981),
+        backgroundColor: _colorSuccess,
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text('Your Tailored Resume'),
@@ -40,10 +44,10 @@ class ResultsScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                color: _colorSuccess.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: const Color(0xFF10B981),
+                  color: _colorSuccess,
                   width: 2,
                 ),
               ),
@@ -51,7 +55,7 @@ class ResultsScreen extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.check_circle,
-                    color: Color(0xFF10B981),
+                    color: _colorSuccess,
                     size: 48,
                   ),
                   const SizedBox(height: 12),
@@ -60,7 +64,7 @@ class ResultsScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF10B981),
+                      color: _colorSuccess,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -80,7 +84,7 @@ class ResultsScreen extends StatelessWidget {
             _buildFileCard(
               context: context,
               icon: Icons.description,
-              iconColor: const Color(0xFF3B82F6),
+              iconColor: _colorPrimary,
               title: 'Tailored Resume',
               subtitle: 'Your resume customized for this job',
               downloadUrl: resumeUrl,
@@ -93,7 +97,7 @@ class ResultsScreen extends StatelessWidget {
             _buildFileCard(
               context: context,
               icon: Icons.mail_outline,
-              iconColor: const Color(0xFF8B5CF6),
+              iconColor: _colorAccent,
               title: 'Cover Letter',
               subtitle: 'Professional cover letter',
               downloadUrl: coverLetterUrl,
@@ -124,14 +128,14 @@ class ResultsScreen extends StatelessWidget {
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.lightbulb_outline, color: Color(0xFF3B82F6)),
+                      Icon(Icons.lightbulb_outline, color: _colorPrimary),
                       SizedBox(width: 8),
                       Text(
                         'Tips for Success',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF3B82F6),
+                          color: _colorPrimary,
                         ),
                       ),
                     ],
@@ -174,7 +178,7 @@ class ResultsScreen extends StatelessWidget {
                     icon: const Icon(Icons.share),
                     label: const Text('Share'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
+                      backgroundColor: _colorPrimary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -249,7 +253,7 @@ class ResultsScreen extends StatelessWidget {
           ),
           IconButton(
             onPressed: onView,
-            icon: const Icon(Icons.visibility, color: Color(0xFF3B82F6)),
+            icon: Icon(Icons.visibility, color: _colorPrimary),
           ),
           IconButton(
             onPressed: () async {
@@ -258,7 +262,7 @@ class ResultsScreen extends StatelessWidget {
                 subject: title,
               );
             },
-            icon: const Icon(Icons.download, color: Color(0xFF10B981)),
+            icon: Icon(Icons.download, color: _colorSuccess),
           ),
         ],
       ),
@@ -271,7 +275,7 @@ class ResultsScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('• ', style: TextStyle(color: Color(0xFF3B82F6))),
+          Text('• ', style: TextStyle(color: _colorPrimary)),
           Expanded(
             child: Text(
               text,

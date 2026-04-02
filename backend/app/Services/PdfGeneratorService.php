@@ -3,64 +3,79 @@
 namespace App\Services;
 
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class PdfGeneratorService
 {
+    private const DIRECTORY = 'tailored';
+    private const PAPER_SIZE = 'A4';
+    private const PAPER_ORIENTATION = 'portrait';
+
+    // Common styling constants
+    private const FONT_FAMILY = "'Helvetica Neue', Arial, sans-serif";
+    private const FONT_SIZE_BODY = '11pt';
+    private const FONT_SIZE_LARGE = '24pt';
+    private const FONT_SIZE_MEDIUM = '12pt';
+    private const FONT_SIZE_SMALL = '10pt';
+    private const COLOR_PRIMARY = '#2563eb';
+    private const COLOR_TEXT = '#333';
+    private const COLOR_SECONDARY = '#666';
+    private const COLOR_LIGHT = '#555';
+
     /**
      * Generate a professional resume PDF from structured data.
-     *
-     * @param array $resumeData - Structured resume data
-     * @return string - The path to the generated PDF
      */
     public function generateResumePdf(array $resumeData): string
     {
         $html = $this->buildResumeHtml($resumeData);
 
-        $fileName = 'tailored_resume_' . Str::uuid() . '.pdf';
-        $directory = 'tailored';
-
-        // Ensure directory exists
-        if (!Storage::disk('local')->exists($directory)) {
-            Storage::disk('local')->makeDirectory($directory);
-        }
-
-        $fullPath = $directory . '/' . $fileName;
-
-        $pdf = Pdf::loadHTML($html);
-        $pdf->setPaper('A4', 'portrait');
-        $pdf->save(Storage::disk('local')->path($fullPath));
-
-        return $fullPath;
+        return $this->savePdf($html, 'tailored_resume_' . Str::uuid() . '.pdf');
     }
 
     /**
      * Generate a cover letter PDF.
-     *
-     * @param string $coverLetter - The cover letter text
-     * @param string $jobTitle - The job title
-     * @param string $company - The company name
-     * @return string - The path to the generated PDF
      */
     public function generateCoverLetterPdf(string $coverLetter, string $jobTitle, string $company): string
     {
         $html = $this->buildCoverLetterHtml($coverLetter, $jobTitle, $company);
 
-        $fileName = 'cover_letter_' . Str::uuid() . '.pdf';
-        $directory = 'tailored';
+        return $this->savePdf($html, 'cover_letter_' . Str::uuid() . '.pdf');
+    }
 
+    /**
+     * Save HTML content as a PDF file.
+     */
+    private function savePdf(string $html, string $fileName): string
+    {
+        $this->ensureDirectoryExists(self::DIRECTORY);
+
+        $fullPath = self::DIRECTORY . '/' . $fileName;
+
+        try {
+            $pdf = Pdf::loadHTML($html);
+            $pdf->setPaper(self::PAPER_SIZE, self::PAPER_ORIENTATION);
+            $pdf->save(Storage::disk('local')->path($fullPath));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('PDF generation failed', [
+                'path' => $fullPath,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to generate PDF. Please try again.');
+        }
+
+        return $fullPath;
+    }
+
+    /**
+     * Ensure the storage directory exists.
+     */
+    private function ensureDirectoryExists(string $directory): void
+    {
         if (!Storage::disk('local')->exists($directory)) {
             Storage::disk('local')->makeDirectory($directory);
         }
-
-        $fullPath = $directory . '/' . $fileName;
-
-        $pdf = Pdf::loadHTML($html);
-        $pdf->setPaper('A4', 'portrait');
-        $pdf->save(Storage::disk('local')->path($fullPath));
-
-        return $fullPath;
     }
 
     /**

@@ -7,60 +7,24 @@ use Illuminate\Support\Facades\Log;
 
 class TailorService
 {
-    protected string $apiKey;
-    protected string $baseUrl = 'https://openrouter.ai/api/v1';
+    private const BASE_URL = 'https://openrouter.ai/api/v1';
+    private const DEFAULT_MODEL = 'anthropic/claude-3-haiku';
+    private const TEMPERATURE = 0.7;
+    private const MAX_TOKENS = 4000;
 
-    // Default model - can be overridden via config
-    protected string $model = 'anthropic/claude-3-haiku';
+    private string $apiKey;
+    private string $model;
 
     public function __construct()
     {
         $this->apiKey = config('services.openrouter.api_key', env('OPENROUTER_API_KEY', ''));
-        $this->model = config('services.openrouter.model', 'anthropic/claude-3-haiku');
+        $this->model = config('services.openrouter.model', self::DEFAULT_MODEL);
     }
 
     /**
-     * Tailor a resume and generate a cover letter based on job description.
-     *
-     * @param string $resumeText - The extracted text from the resume PDF
-     * @param string $jobTitle - The job title
-     * @param string $company - The company name
-     * @param string $jobDescription - The job description text
-     * @return array - Contains 'resume' (array) and 'cover_letter' (string)
+     * Expected JSON structure for the LLM response.
      */
-    public function tailor(string $resumeText, string $jobTitle, string $company, string $jobDescription): array
-    {
-        $prompt = $this->buildPrompt($resumeText, $jobTitle, $company, $jobDescription);
-
-        $response = $this->callLlm($prompt);
-
-        return $this->parseResponse($response);
-    }
-
-    /**
-     * Build the prompt for the LLM.
-     */
-    protected function buildPrompt(string $resumeText, string $jobTitle, string $company, string $jobDescription): string
-    {
-        return <<<PROMPT
-You are a professional resume writer and career consultant. Given a candidate's resume and a job description, your task is to:
-
-1. Create a tailored resume that highlights the most relevant skills and experience for the specific job
-2. Write a compelling cover letter
-
-**JOB DETAILS:**
-Job Title: {$jobTitle}
-Company: {$company}
-
-**JOB DESCRIPTION:**
-{$jobDescription}
-
-**CANDIDATE'S ORIGINAL RESUME:**
-{$resumeText}
-
-**OUTPUT FORMAT:**
-Return a JSON object with this exact structure:
-{
+    private const RESPONSE_SCHEMA = '{
     "resume": {
         "name": "Full Name (from resume)",
         "email": "email@example.com",
@@ -85,7 +49,58 @@ Return a JSON object with this exact structure:
         "skills": ["Skill 1", "Skill 2", "Skill 3"]
     },
     "cover_letter": "Full cover letter text with proper paragraphs..."
-}
+}';
+
+    /**
+     * Tailor a resume and generate a cover letter based on job description.
+     *
+     * @param string $resumeText - The extracted text from the resume PDF
+     * @param string $jobTitle - The job title
+     * @param string $company - The company name
+     * @param string $jobDescription - The job description text
+     * @return array - Contains 'resume' (array) and 'cover_letter' (string)
+     */
+    public function tailor(string $resumeText, string $jobTitle, string $company, string $jobDescription): array
+    {
+        // Sanitize user input to prevent prompt injection
+        $jobTitle = $this->sanitizeInput($jobTitle);
+        $company = $this->sanitizeInput($company);
+        $jobDescription = $this->sanitizeInput($jobDescription);
+        $resumeText = $this->sanitizeInput($resumeText);
+
+        $prompt = $this->buildPrompt($resumeText, $jobTitle, $company, $jobDescription);
+
+        $response = $this->callLlm($prompt);
+
+        return $this->parseResponse($response);
+    }
+
+    /**
+     * Build the prompt for the LLM.
+     */
+    protected function buildPrompt(string $resumeText, string $jobTitle, string $company, string $jobDescription): string
+    {
+        $schema = self::RESPONSE_SCHEMA;
+
+        return <<<PROMPT
+You are a professional resume writer and career consultant. Given a candidate's resume and a job description, your task is to:
+
+1. Create a tailored resume that highlights the most relevant skills and experience for the specific job
+2. Write a compelling cover letter
+
+**JOB DETAILS:**
+Job Title: {$jobTitle}
+Company: {$company}
+
+**JOB DESCRIPTION:**
+{$jobDescription}
+
+**CANDIDATE'S ORIGINAL RESUME:**
+{$resumeText}
+
+**OUTPUT FORMAT:**
+Return a JSON object with this exact structure:
+{$schema}
 
 IMPORTANT: Return ONLY valid JSON. No markdown, no explanation, just the JSON object.
 PROMPT;
@@ -105,7 +120,7 @@ PROMPT;
             'Content-Type' => 'application/json',
             'HTTP-Referer' => env('APP_URL', 'http://localhost'),
             'X-Title' => 'AI Resume Tailor',
-        ])->post($this->baseUrl . '/chat/completions', [
+        ])->post(self::BASE_URL . '/chat/completions', [
             'model' => $this->model,
             'messages' => [
                 [
@@ -113,8 +128,8 @@ PROMPT;
                     'content' => $prompt,
                 ],
             ],
-            'temperature' => 0.7,
-            'max_tokens' => 4000,
+            'temperature' => self::TEMPERATURE,
+            'max_tokens' => self::MAX_TOKENS,
         ]);
 
         if ($response->failed()) {
@@ -165,11 +180,26 @@ PROMPT;
      */
     protected function extractJson(string $text): string
     {
-        // Try to find JSON object delimiters
-        if (preg_match('/\{[\s\S]*\}/', $text, $matches)) {
+        if (preg_match('/\{[\s\S]*?\}/', $text, $matches)) {
             return $matches[0];
         }
 
         return $text;
+    }
+
+    /**
+     * Sanitize user input to prevent prompt injection attacks.
+     */
+    protected function sanitizeInput(string $input): string
+    {
+        // Remove control characters that could manipulate prompt
+        $input = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $input);
+        // Trim whitespace
+        $input = trim($input);
+        // Limit length to prevent resource exhaustion (100KB max)
+        if (strlen($input) > 100000) {
+            $input = substr($input, 0, 100000);
+        }
+        return $input;
     }
 }

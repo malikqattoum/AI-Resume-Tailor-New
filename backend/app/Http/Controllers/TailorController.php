@@ -2,22 +2,33 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PdfGeneratorService;
+use App\Services\ResumeParserService;
+use App\Services\TailorService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 
 class TailorController extends Controller
 {
-    protected $resumeParserService;
-    protected $tailorService;
-    protected $pdfGeneratorService;
+    private const RESULT_DIR = 'results';
+    private const RESULT_FILE_EXTENSION = '.json';
+    private const ALLOWED_PATH_PREFIXES = ['tailored/', 'resumes/', 'results/'];
 
-    public function __construct()
-    {
-        $this->resumeParserService = new \App\Services\ResumeParserService();
-        $this->tailorService = new \App\Services\TailorService();
-        $this->pdfGeneratorService = new \App\Services\PdfGeneratorService();
+    private ResumeParserService $resumeParserService;
+    private TailorService $tailorService;
+    private PdfGeneratorService $pdfGeneratorService;
+
+    public function __construct(
+        ResumeParserService $resumeParserService,
+        TailorService $tailorService,
+        PdfGeneratorService $pdfGeneratorService
+    ) {
+        $this->resumeParserService = $resumeParserService;
+        $this->tailorService = $tailorService;
+        $this->pdfGeneratorService = $pdfGeneratorService;
     }
 
     /**
@@ -115,10 +126,29 @@ class TailorController extends Controller
             'created_at' => now()->toIso8601String(),
         ];
 
-        Storage::disk('local')->put(
-            'results/' . $resultId . '.json',
-            json_encode($resultData)
-        );
+        try {
+            Storage::disk('local')->put(
+                self::RESULT_DIR . '/' . $resultId . self::RESULT_FILE_EXTENSION,
+                json_encode($resultData)
+            );
+        } catch (\Exception $e) {
+            // Clean up orphaned PDF files if metadata storage fails
+            try {
+                Storage::disk('local')->delete($tailoredResumePath);
+                Storage::disk('local')->delete($coverLetterPath);
+            } catch (\Exception $cleanupError) {
+                \Illuminate\Support\Facades\Log::warning('Failed to clean up orphaned files', [
+                    'resume' => $tailoredResumePath,
+                    'cover_letter' => $coverLetterPath,
+                    'error' => $cleanupError->getMessage(),
+                ]);
+            }
+            \Illuminate\Support\Facades\Log::error('Failed to store result metadata', [
+                'result_id' => $resultId,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to save results. Please try again.');
+        }
 
         return response()->json([
             'success' => true,
@@ -141,7 +171,7 @@ class TailorController extends Controller
      */
     public function show(string $id)
     {
-        $resultPath = 'results/' . $id . '.json';
+        $resultPath = self::RESULT_DIR . '/' . $id . self::RESULT_FILE_EXTENSION;
 
         if (!Storage::disk('local')->exists($resultPath)) {
             return response()->json([
@@ -178,6 +208,11 @@ class TailorController extends Controller
     {
         $decodedPath = urldecode($path);
 
+        // Validate path stays within allowed directories (prevent path traversal)
+        if (!$this->isAllowedPath($decodedPath)) {
+            abort(403, 'Access denied');
+        }
+
         if (!Storage::disk('local')->exists($decodedPath)) {
             abort(404, 'File not found');
         }
@@ -191,12 +226,24 @@ class TailorController extends Controller
     }
 
     /**
+     * Check if path is within allowed directories.
+     */
+    protected function isAllowedPath(string $path): bool
+    {
+        foreach (self::ALLOWED_PATH_PREFIXES as $prefix) {
+            if (str_starts_with($path, $prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Find resume path by UUID.
      */
     protected function findResumePath(string $resumeId): ?string
     {
-        $resumeDir = 'resumes/';
-        $files = Storage::disk('local')->files($resumeDir);
+        $files = Storage::disk('local')->files('resumes/');
 
         foreach ($files as $file) {
             if (str_starts_with(basename($file), $resumeId)) {

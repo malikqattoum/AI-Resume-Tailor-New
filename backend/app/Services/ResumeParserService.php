@@ -28,10 +28,22 @@ class ResumeParserService
             throw new \Exception("PDF file not found at: {$fullPath}");
         }
 
-        $pdf = $this->pdfParser->parseFile($fullPath);
-        $text = $pdf->getText();
+        try {
+            $pdf = $this->pdfParser->parseFile($fullPath);
+            $text = $pdf->getText();
 
-        return trim($text);
+            if (empty(trim($text))) {
+                throw new \Exception('No text could be extracted from the PDF. Please ensure it is not a scanned image or password-protected.');
+            }
+
+            return trim($text);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('PDF parsing failed', [
+                'path' => $fullPath,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to read resume PDF. Please ensure it is not password-protected and is a valid PDF.');
+        }
     }
 
     /**

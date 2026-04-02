@@ -13,6 +13,8 @@ class JobDescriptionScreen extends StatefulWidget {
 }
 
 class _JobDescriptionScreenState extends State<JobDescriptionScreen> {
+  static const _colorPrimary = Color(0xFF3B82F6);
+
   final _formKey = GlobalKey<FormState>();
   final _jobTitleController = TextEditingController();
   final _companyController = TextEditingController();
@@ -20,6 +22,49 @@ class _JobDescriptionScreenState extends State<JobDescriptionScreen> {
   final _apiService = ApiService();
 
   bool _isUploading = false;
+
+  // Common decoration style for form fields
+  InputDecoration _textFieldDecoration(String label, String hint, {bool alignLabelWithHint = false}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.white,
+      alignLabelWithHint: alignLabelWithHint,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+    );
+  }
+
+  // Validation helper
+  String? Function(String?) _requiredValidator(String fieldName) {
+    return (value) {
+      if (value == null || value.trim().isEmpty) {
+        return 'Please enter the $fieldName';
+      }
+      return null;
+    };
+  }
+
+  String _friendlyError(dynamic e) {
+    final msg = e.toString();
+    if (msg.contains('SocketException') || msg.contains('Connection refused')) {
+      return 'Could not connect to server. Please check your internet connection.';
+    } else if (msg.contains('timeout') || msg.contains('TimeoutException')) {
+      return 'Request timed out. Please try again.';
+    } else if (msg.contains('404')) {
+      return 'Service not found. Please update the app.';
+    } else if (msg.contains('401') || msg.contains('403')) {
+      return 'Access denied. Please check your settings.';
+    }
+    return 'Something went wrong. Please try again.';
+  }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -57,7 +102,7 @@ class _JobDescriptionScreenState extends State<JobDescriptionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(_friendlyError(e)),
             backgroundColor: Colors.red,
           ),
         );
@@ -134,51 +179,21 @@ class _JobDescriptionScreenState extends State<JobDescriptionScreen> {
                   // Job Title
                   TextFormField(
                     controller: _jobTitleController,
-                    decoration: InputDecoration(
-                      labelText: 'Job Title',
-                      hintText: 'e.g. Senior Software Engineer',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
-                      ),
+                    decoration: _textFieldDecoration(
+                      'Job Title',
+                      'e.g. Senior Software Engineer',
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter the job title';
-                      }
-                      return null;
-                    },
+                    validator: _requiredValidator('job title'),
                   ),
                   const SizedBox(height: 16),
                   // Company
                   TextFormField(
                     controller: _companyController,
-                    decoration: InputDecoration(
-                      labelText: 'Company Name',
-                      hintText: 'e.g. Acme Corporation',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
-                      ),
+                    decoration: _textFieldDecoration(
+                      'Company Name',
+                      'e.g. Acme Corporation',
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter the company name';
-                      }
-                      return null;
-                    },
+                    validator: _requiredValidator('company name'),
                   ),
                   const SizedBox(height: 16),
                   // Job Description
@@ -188,21 +203,10 @@ class _JobDescriptionScreenState extends State<JobDescriptionScreen> {
                       maxLines: null,
                       expands: true,
                       textAlignVertical: TextAlignVertical.top,
-                      decoration: InputDecoration(
-                        labelText: 'Job Description',
-                        hintText:
-                            'Paste the full job description here...',
+                      decoration: _textFieldDecoration(
+                        'Job Description',
+                        'Paste the full job description here...',
                         alignLabelWithHint: true,
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
@@ -223,7 +227,7 @@ class _JobDescriptionScreenState extends State<JobDescriptionScreen> {
                     child: ElevatedButton(
                       onPressed: _isUploading ? null : _submit,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF3B82F6),
+                        backgroundColor: _colorPrimary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
