@@ -30,6 +30,7 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => true, // Required for Sanctum cookies
+    // Set to false for mobile apps using Bearer token auth (not cookies)
+    'supports_credentials' => false,
 
 ];

@@ -8,9 +8,10 @@ class ApiService {
   // For Android emulator, use 10.0.2.2 to access host localhost
   // For iOS simulator, use localhost
   // For production, use your actual API domain
+  // Default to production API URL
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8000/api',
+    defaultValue: 'https://resume-tailor-api.muddaker.org/api',
   );
 
   String? _authToken;
@@ -72,6 +73,36 @@ class ApiService {
     } else {
       final error = json.decode(response.body);
       throw Exception(error['message'] ?? 'Registration failed');
+    }
+  }
+
+  /// Login user with Google (receives ID token from Google Sign-In)
+  Future<AuthResponse> googleAuth(String idToken) async {
+    final uri = Uri.parse('$baseUrl/auth/google');
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'id_token': idToken,
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = json.decode(response.body);
+      if (data['success'] == true) {
+        final authData = data['data'];
+        final token = authData['access_token'] as String;
+        setAuthToken(token);
+        return AuthResponse(
+          success: true,
+          token: token,
+          user: User.fromJson(authData['user']),
+        );
+      }
+      throw Exception(data['message'] ?? 'Google authentication failed');
+    } else {
+      final error = json.decode(response.body);
+      throw Exception(error['message'] ?? 'Google authentication failed');
     }
   }
 

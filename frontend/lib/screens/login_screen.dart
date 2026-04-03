@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_provider.dart';
+import '../widgets/google_auth_button.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
 
@@ -115,7 +116,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 48),
-                    // Email field
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -158,7 +158,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    // Password field
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -201,7 +200,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       },
                     ),
                     const SizedBox(height: 32),
-                    // Login button
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -233,7 +231,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    // Register link
+                    GoogleAuthButton(
+                      label: 'Sign in with Google',
+                      isLoading: authState.isLoading,
+                    ),
+                    const SizedBox(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -261,7 +263,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    // Back to home
                     TextButton(
                       onPressed: () {
                         Navigator.pop(context);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_provider.dart';
+import '../widgets/google_auth_button.dart';
 import 'home_screen.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -47,6 +48,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   String _friendlyError(String? error) {
+    if (error == null) return 'An error occurred';
+    if (error.contains('already been taken')) {
+      return 'Email already registered';
+    }
+    if (error.contains('SocketException') || error.contains('Connection refused')) {
+      return 'Could not connect to server';
+    }
+    if (error.contains('timeout')) {
+      return 'Request timed out';
+    }
+    return error.replaceAll('Exception: ', '');
+  }
+
+  String _googleAuthErrorFormatter(String? error) {
     if (error == null) return 'An error occurred';
     if (error.contains('already been taken')) {
       return 'Email already registered';
@@ -121,7 +136,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 48),
-                    // Name field
                     TextFormField(
                       controller: _nameController,
                       textCapitalization: TextCapitalization.words,
@@ -153,7 +167,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    // Email field
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -188,7 +201,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    // Password field
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -234,7 +246,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    // Confirm Password field
                     TextFormField(
                       controller: _confirmPasswordController,
                       obscureText: _obscureConfirmPassword,
@@ -280,7 +291,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: 32),
-                    // Register button
+                    GoogleAuthButton(
+                      label: 'Sign up with Google',
+                      isLoading: authState.isLoading,
+                      errorFormatter: _googleAuthErrorFormatter,
+                    ),
+                    const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -312,7 +328,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    // Login link
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

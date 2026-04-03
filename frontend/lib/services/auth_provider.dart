@@ -40,6 +40,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   AuthNotifier(this._apiService) : super(const AuthState());
 
+  Future<bool> googleSignIn(String idToken) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final response = await _apiService.googleAuth(idToken);
+      if (response.success && response.user != null) {
+        state = state.copyWith(
+          isAuthenticated: true,
+          user: response.user,
+          token: response.token,
+          isLoading: false,
+        );
+        return true;
+      }
+      state = state.copyWith(
+        isLoading: false,
+        error: response.error ?? 'Google sign-in failed',
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+      return false;
+    }
+  }
+
   Future<bool> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {

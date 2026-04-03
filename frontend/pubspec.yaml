@@ -62,6 +62,9 @@ dependencies:
   # Loading indicator
   flutter_spinkit: ^5.2.0
 
+  # Google Sign-In
+  google_sign_in: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
