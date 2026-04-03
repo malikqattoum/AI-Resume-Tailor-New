@@ -19,7 +19,8 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    // restrict to your production domains - UPDATE THESE for production
+    'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'localhost,127.0.0.1')),
 
     'allowed_origins_patterns' => [],
 
@@ -29,6 +30,6 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
+    'supports_credentials' => true, // Required for Sanctum cookies
 
 ];

@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Validator;
+use Illuminate\Support\Facades\Validator;
 
 class ResumeController extends Controller
 {
@@ -32,6 +33,7 @@ class ResumeController extends Controller
             ], 422);
         }
 
+        $userId = $request->user()->id;
         $file = $request->file('resume');
         $originalName = $file->getClientOriginalName();
 
@@ -44,6 +46,16 @@ class ResumeController extends Controller
 
         // Store in resumes directory
         $path = $file->storeAs('resumes', $fileName, 'local');
+
+        // Store metadata for user association
+        $metadataPath = 'resumes/' . $resumeId . '.meta.json';
+        Storage::disk('local')->put($metadataPath, json_encode([
+            'resume_id' => $resumeId,
+            'user_id' => $userId,
+            'original_filename' => $originalName,
+            'stored_path' => 'resumes/' . $fileName,
+            'created_at' => now()->toIso8601String(),
+        ]));
 
         return response()->json([
             'success' => true,
@@ -61,19 +73,40 @@ class ResumeController extends Controller
      *
      * GET /api/resume/{id}
      *
+     * @param Request $request
      * @param string $id - Resume UUID
      * @return \Illuminate\Http\JsonResponse
      */
-    public function show(string $id)
+    public function show(Request $request, string $id)
     {
+        $userId = $request->user()->id;
         $resumeService = new \App\Services\ResumeParserService();
 
-        // Find the resume file
-        $resumeDir = 'resumes/';
-        $files = Storage::disk('local')->files($resumeDir);
+        // First check metadata file
+        $metadataPath = 'resumes/' . $id . '.meta.json';
+        $metadata = null;
 
+        if (Storage::disk('local')->exists($metadataPath)) {
+            $metadata = json_decode(Storage::disk('local')->get($metadataPath), true);
+
+            // Verify ownership
+            if ($metadata && $metadata['user_id'] !== $userId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Resume not found',
+                ], 404);
+            }
+        }
+
+        // Find the resume file
         $resumePath = null;
+        $files = Storage::disk('local')->files('resumes/');
+
         foreach ($files as $file) {
+            // Skip metadata files
+            if (str_ends_with($file, '.meta.json')) {
+                continue;
+            }
             if (str_starts_with(basename($file), $id)) {
                 $resumePath = $file;
                 break;
@@ -87,6 +120,14 @@ class ResumeController extends Controller
             ], 404);
         }
 
+        // Verify ownership if metadata exists
+        if ($metadata && $metadata['user_id'] !== $userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Resume not found',
+            ], 404);
+        }
+
         try {
             $text = $resumeService->extractText($resumePath);
 
@@ -94,6 +135,7 @@ class ResumeController extends Controller
                 'success' => true,
                 'data' => [
                     'resume_id' => $id,
+                    'original_filename' => $metadata['original_filename'] ?? 'unknown.pdf',
                     'text' => $text,
                 ],
             ]);

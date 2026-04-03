@@ -26,6 +26,7 @@
   - `smalot/pdfparser` — PDF text extraction
   - `barryvdh/laravel-dompdf` — PDF generation
   - `guzzlehttp/guzzle` — HTTP client
+  - `stripe/stripe-php` — Stripe payment/subscription integration
 - **LLM**: OpenRouter API (supports OpenAI, Anthropic, Meta, etc.)
 
 ### Architecture
@@ -50,6 +51,10 @@
 - [ ] `GET /api/tailored/{id}` — Get tailoring result
 - [ ] `GET /api/download/{path}` — Download generated PDF
 - [ ] `GET /api/health` — Health check
+- [ ] `GET /api/subscription` — Get current subscription plan and usage
+- [ ] `POST /api/subscription/upgrade` — Upgrade to paid plan via Stripe Checkout
+- [ ] `POST /api/subscription/create-portal-session` — Create Stripe Customer Portal session
+- [ ] `POST /api/webhooks/stripe` — Handle Stripe webhook events
 
 ### Core Services (Backend)
 - [ ] `ResumeParserService` — Extract text from PDF
@@ -86,6 +91,10 @@
 | POST | `/api/tailor` | Generate tailored resume + cover letter |
 | GET | `/api/tailored/{id}` | Get tailoring result |
 | GET | `/api/download/{path}` | Download file |
+| GET | `/api/subscription` | Get current subscription plan, status, usage |
+| POST | `/api/subscription/upgrade` | Upgrade to paid plan (body: { "plan": "basic" | "pro" }) |
+| POST | `/api/subscription/create-portal-session` | Create Stripe Customer Portal session URL |
+| POST | `/api/webhooks/stripe` | Stripe webhook event handler |
 
 ### Request/Response Examples
 
@@ -121,6 +130,14 @@
     "cover_letter_url": "http://.../api/download/tailored/..."
   }
 }
+
+// Error: Usage limit reached (HTTP 402)
+{
+  "success": false,
+  "message": "Monthly request limit reached.",
+  "error": "payment_required",
+  "upgrade_url": "https://billing.stripe.com/..."
+}
 ```
 
 ## 6. Configuration
@@ -129,6 +146,10 @@
 ```
 OPENROUTER_API_KEY=your_api_key_here
 APP_URL=http://localhost:8000
+STRIPE_SECRET_KEY=your_stripe_secret_key
+STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
+STRIPE_PRICE_BASIC=price_...  # $4.99/month price ID from Stripe Dashboard
+STRIPE_PRICE_PRO=price_...   # $14.99/month price ID from Stripe Dashboard
 ```
 
 ### API Base URL (Flutter)
@@ -145,11 +166,17 @@ AI-Resume-Tailor/
 │   ├── app/
 │   │   ├── Http/Controllers/
 │   │   │   ├── ResumeController.php
-│   │   │   └── TailorController.php
+│   │   │   ├── TailorController.php
+│   │   │   ├── SubscriptionController.php
+│   │   │   └── WebhookController.php
+│   │   ├── Models/
+│   │   │   ├── Subscription.php
+│   │   │   └── SubscriptionUsageLog.php
 │   │   └── Services/
 │   │       ├── ResumeParserService.php
 │   │       ├── TailorService.php
-│   │       └── PdfGeneratorService.php
+│   │       ├── PdfGeneratorService.php
+│   │       └── StripeService.php
 │   ├── routes/api.php
 │   ├── storage/app/resumes/
 │   ├── storage/app/tailored/
@@ -169,3 +196,17 @@ AI-Resume-Tailor/
 │       └── widgets/
 └── SPEC.md
 ```
+
+## 8. Subscription Plans
+
+| Tier | Price | Monthly Requests | Features |
+|------|-------|-----------------|----------|
+| Free | $0/mo | 3 tailors/mo | Full tailoring + cover letter |
+| Basic | $4.99/mo | 20 tailors/mo | Full tailoring + cover letter |
+| Pro | $14.99/mo | Unlimited | Full tailoring + cover letter + priority |
+
+### Stripe Integration
+- Products and prices are configured manually in the Stripe Dashboard
+- Upgrade flow uses Stripe Checkout Session
+- Subscription management uses Stripe Customer Portal
+- Webhooks sync subscription status with local database
